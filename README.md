@@ -5,9 +5,9 @@
 <h1 align="center">TimeGuardian</h1>
 
 <p align="center">
-  <img alt="Github top language" src="https://img.shields.io/github/languages/top/cipher-shad0w/time-blocker?color=56BEB8">
-  <img alt="Github language count" src="https://img.shields.io/github/languages/count/cipher-shad0w/time-blocker?color=56BEB8">
-  <img alt="Repository size" src="https://img.shields.io/github/repo-size/cipher-shad0w/time-blocker?color=56BEB8">
+  <img alt="Github top language" src="https://img.shields.io/github/languages/top/cipher-shad0w/timeguardian?color=56BEB8">
+  <img alt="Github language count" src="https://img.shields.io/github/languages/count/cipher-shad0w/timeguardian?color=56BEB8">
+  <img alt="Repository size" src="https://img.shields.io/github/repo-size/cipher-shad0w/timeguardian?color=56BEB8">
 </p>
 
 <p align="center">
@@ -66,8 +66,8 @@ TimeGuardian is a command-line and TUI (Text User Interface) application designe
 
 1. **Clone the repository:**
    ```
-   git clone https://github.com/cipher-shad0w/time-blocker.git
-   cd time-blocker
+   git clone https://github.com/cipher-shad0w/timeguardian.git
+   cd timeguardian
    ```
 
 2. **Build the application:**
