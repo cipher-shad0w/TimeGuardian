@@ -64,9 +64,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Title bar
+            Constraint::Length(3),  // Title bar and tabs (reduced from 5 to 3)
             Constraint::Min(0),     // Main area
-            Constraint::Length(1),  // Status bar
+            Constraint::Length(3),  // Status bar
         ])
         .split(frame.size());
     
@@ -98,9 +98,18 @@ fn render_title_and_tabs(app: &App, frame: &mut Frame, area: Rect) {
         Span::raw(" - Block distractions, stay focused"),
     ];
     
+    // Split the area for title and tabs
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1), // Reduziert von 3 auf 1
+        ])
+        .split(area);
+    
     let title = Paragraph::new(Line::from(title_spans))
         .style(Style::default())
-        .block(Block::default().borders(Borders::BOTTOM));
+        .block(Block::default().border_type(BorderType::Rounded));
     
     // Create tabs
     let tab_titles: Vec<Line> = app
@@ -117,19 +126,11 @@ fn render_title_and_tabs(app: &App, frame: &mut Frame, area: Rect) {
         .collect();
     
     let tabs = Tabs::new(tab_titles)
-        .block(Block::default().borders(Borders::NONE))
+        .block(Block::default()
+            .borders(Borders::NONE)) // Entferne die Ränder für ein flacheres Design
         .select(app.tabs.index)
         .style(Style::default())
         .highlight_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
-    
-    // Split the area for title and tabs
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .split(area);
     
     frame.render_widget(title, chunks[0]);
     frame.render_widget(tabs, chunks[1]);
@@ -292,13 +293,13 @@ fn render_timer_tab(app: &mut App, frame: &mut Frame, area: Rect) {
     let help_text = if app.is_blocking {
         "Press [Esc] to stop blocking"
     } else {
-        "Press [↑/↓] to adjust time | [t] to change unit | [Enter] to start blocking"
+        "Press [j/k] to adjust time | [t/u] to change unit | [Space/Enter] to start blocking"
     };
     
     let instructions = Paragraph::new(help_text)
         .block(
             Block::default()
-                .title("Instructions")
+                .title("Vim Controls")
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         )
@@ -318,7 +319,10 @@ fn render_status_bar(app: &App, frame: &mut Frame, area: Rect) {
     
     let status = format!("{} {}", mode_indicator, app.status_message);
     let status_bar = Paragraph::new(status)
-        .style(Style::default().fg(Color::White).bg(Color::Blue));
+        .style(Style::default().fg(Color::White).bg(Color::Blue))
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded));
     
     frame.render_widget(status_bar, area);
 }
@@ -380,18 +384,19 @@ fn render_help_popup(app: &App, frame: &mut Frame) {
 fn get_website_lists_tab_help() -> Vec<Line<'static>> {
     vec![
         Line::from(vec![
-            Span::styled("Website Lists Tab", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("Website Lists Tab (Vim Mode)", Style::default().add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         Line::from("Navigation:"),
-        Line::from("  [Tab] / [Shift+Tab]: Switch between tabs"),
-        Line::from("  [←/→]: Switch between lists and websites"),
-        Line::from("  [↑/↓]: Navigate within lists or websites"),
+        Line::from("  [h/l] or [Tab/Shift+Tab]: Switch between tabs"),
+        Line::from("  [h/l] or [←/→]: Switch between lists and websites"),
+        Line::from("  [k/j] or [↑/↓]: Navigate within lists or websites"),
+        Line::from("  [g]: Go to first item  [G]: Go to last item"),
         Line::from(""),
         Line::from("Actions:"),
-        Line::from("  [n]: Create a new website list"),
+        Line::from("  [o/n]: Create a new website list"),
         Line::from("  [a]: Add a website to the selected list"),
-        Line::from("  [d]: Delete selected website"),
+        Line::from("  [d/x]: Delete selected website"),
         Line::from("  [D]: Delete selected list"),
         Line::from(""),
         Line::from("Other:"),
@@ -404,17 +409,18 @@ fn get_website_lists_tab_help() -> Vec<Line<'static>> {
 fn get_timer_tab_help() -> Vec<Line<'static>> {
     vec![
         Line::from(vec![
-            Span::styled("Timer Tab", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("Timer Tab (Vim Mode)", Style::default().add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         Line::from("Timer Controls:"),
-        Line::from("  [↑/↓]: Increase/decrease time"),
-        Line::from("  [t]: Change time unit (minutes, hours, seconds)"),
-        Line::from("  [Enter]: Start blocking websites"),
+        Line::from("  [k/j] or [↑/↓]: Increase/decrease time"),
+        Line::from("  [+/-]: Quick increase/decrease by larger steps"),
+        Line::from("  [t/u]: Change time unit (minutes, hours, seconds)"),
+        Line::from("  [Space/Enter]: Start blocking websites"),
         Line::from("  [Esc]: Stop active blocking session"),
         Line::from(""),
         Line::from("Navigation:"),
-        Line::from("  [Tab] / [Shift+Tab]: Switch between tabs"),
+        Line::from("  [h/l] or [Tab/Shift+Tab]: Switch between tabs"),
         Line::from(""),
         Line::from("Other:"),
         Line::from("  [?]: Toggle help"),

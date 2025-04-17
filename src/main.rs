@@ -369,10 +369,11 @@ fn run_tui() -> Result<()> {
                         KeyCode::Char('?') => {
                             app.mode = TuiMode::Help;
                         }
-                        KeyCode::Tab => {
+                        // Vim-style tab navigation
+                        KeyCode::Char('l') | KeyCode::Tab => {
                             app.tabs.next();
                         }
-                        KeyCode::BackTab => {
+                        KeyCode::Char('h') | KeyCode::BackTab => {
                             app.tabs.previous();
                         }
                         _ => {
@@ -458,12 +459,12 @@ fn run_tui() -> Result<()> {
 /// Handle key events for the website list tab
 fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
     match key {
-        // Navigate lists
-        KeyCode::Left => {
+        // Navigate lists with vim-style keys
+        KeyCode::Char('h') | KeyCode::Left => {
             app.website_state.select(None);
             app.selected_website_index = None;
         }
-        KeyCode::Right => {
+        KeyCode::Char('l') | KeyCode::Right => {
             if app.selected_list_index.is_some() {
                 if let Some(list) = app.current_website_list() {
                     if !list.websites.is_empty() {
@@ -473,7 +474,7 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
                 }
             }
         }
-        KeyCode::Up => {
+        KeyCode::Char('k') | KeyCode::Up => {
             if app.selected_website_index.is_some() {
                 // Navigate websites
                 let websites_len = app.current_website_list().map_or(0, |list| list.websites.len());
@@ -496,7 +497,7 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
                 }
             }
         }
-        KeyCode::Down => {
+        KeyCode::Char('j') | KeyCode::Down => {
             if app.selected_website_index.is_some() {
                 // Navigate websites
                 let websites_len = app.current_website_list().map_or(0, |list| list.websites.len());
@@ -520,8 +521,34 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
             }
         }
         
-        // Add new list or website
-        KeyCode::Char('n') => {
+        // Vim-style quick movement
+        KeyCode::Char('g') => {
+            // Go to the top
+            if app.selected_website_index.is_some() {
+                app.website_state.select(Some(0));
+                app.selected_website_index = Some(0);
+            } else if !app.website_lists.is_empty() {
+                app.website_list_state.select(Some(0));
+                app.selected_list_index = Some(0);
+            }
+        }
+        KeyCode::Char('G') => {
+            // Go to the bottom
+            if app.selected_website_index.is_some() {
+                let websites_len = app.current_website_list().map_or(0, |list| list.websites.len());
+                if websites_len > 0 {
+                    app.website_state.select(Some(websites_len - 1));
+                    app.selected_website_index = Some(websites_len - 1);
+                }
+            } else if !app.website_lists.is_empty() {
+                let lists_len = app.website_lists.len();
+                app.website_list_state.select(Some(lists_len - 1));
+                app.selected_list_index = Some(lists_len - 1);
+            }
+        }
+        
+        // Add new list or website (vim-style)
+        KeyCode::Char('o') | KeyCode::Char('n') => {
             app.input = Input::default();
             app.mode = TuiMode::Editing;
         }
@@ -534,8 +561,8 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
             }
         }
         
-        // Delete website or list
-        KeyCode::Char('d') => {
+        // Delete website or list (vim-style)
+        KeyCode::Char('d') | KeyCode::Char('x') => {
             if app.selected_website_index.is_some() {
                 app.delete_website();
                 app.status_message = "Website removed".to_string();
@@ -557,21 +584,21 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
 /// Handle key events for the timer tab
 fn handle_timer_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
     match key {
-        // Adjust time
-        KeyCode::Up => {
+        // Adjust time with vim-style navigation
+        KeyCode::Char('k') | KeyCode::Up => {
             app.increase_time();
         }
-        KeyCode::Down => {
+        KeyCode::Char('j') | KeyCode::Down => {
             app.decrease_time();
         }
         
-        // Change time unit
-        KeyCode::Char('t') => {
+        // Change time unit (vim-style using t or u)
+        KeyCode::Char('t') | KeyCode::Char('u') => {
             app.cycle_time_unit();
         }
         
-        // Start blocking
-        KeyCode::Enter => {
+        // Start blocking (vim-style using space or enter)
+        KeyCode::Char(' ') | KeyCode::Enter => {
             if !app.is_blocking && app.selected_list_index.is_some() {
                 let websites = app.current_websites();
                 
@@ -593,7 +620,7 @@ fn handle_timer_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
             }
         }
         
-        // Stop blocking
+        // Stop blocking (vim-style using Esc)
         KeyCode::Esc => {
             if app.is_blocking {
                 match stop_blocking_websites() {
@@ -605,6 +632,16 @@ fn handle_timer_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
                     }
                 }
             }
+        }
+        
+        // Quick time adjustments (vim-style)
+        KeyCode::Char('+') => {
+            // Increase time by larger step
+            for _ in 0..5 { app.increase_time(); }
+        }
+        KeyCode::Char('-') => {
+            // Decrease time by larger step
+            for _ in 0..5 { app.decrease_time(); }
         }
         
         _ => {}
