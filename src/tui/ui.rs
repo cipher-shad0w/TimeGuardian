@@ -188,14 +188,18 @@ fn render_website_lists_tab(app: &mut App, frame: &mut Frame, area: Rect) {
         .border_type(BorderType::Rounded);
     
     // Get websites from selected list
-    let website_items: Vec<ListItem> = if let Some(list) = app.current_website_list() {
-        list.websites
-            .iter()
-            .map(|website| {
-                let lines = vec![Line::from(Span::raw(website))];
-                ListItem::new(lines)
-            })
-            .collect()
+    let website_items: Vec<ListItem> = if let Some(index) = app.selected_list_index {
+        if index < app.website_lists.len() {
+            app.website_lists[index].websites
+                .iter()
+                .map(|website| {
+                    let lines = vec![Line::from(Span::raw(website))];
+                    ListItem::new(lines)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
     } else {
         Vec::new()
     };
@@ -373,7 +377,7 @@ fn render_help_popup(app: &App, frame: &mut Frame) {
 }
 
 /// Get help text for the website lists tab
-fn get_website_lists_tab_help() -> Vec<Line> {
+fn get_website_lists_tab_help() -> Vec<Line<'static>> {
     vec![
         Line::from(vec![
             Span::styled("Website Lists Tab", Style::default().add_modifier(Modifier::BOLD)),
@@ -397,7 +401,7 @@ fn get_website_lists_tab_help() -> Vec<Line> {
 }
 
 /// Get help text for the timer tab
-fn get_timer_tab_help() -> Vec<Line> {
+fn get_timer_tab_help() -> Vec<Line<'static>> {
     vec![
         Line::from(vec![
             Span::styled("Timer Tab", Style::default().add_modifier(Modifier::BOLD)),

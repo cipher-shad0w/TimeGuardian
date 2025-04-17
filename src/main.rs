@@ -436,6 +436,7 @@ fn run_tui() -> Result<()> {
                 }
             }
             Ok(tui::event::Event::Resize(_, _)) => {}
+            Ok(tui::event::Event::Mouse(_)) => {}, // Add handling for mouse events
             Err(_) => {
                 app.running = false;
             }
@@ -522,13 +523,11 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
         // Add new list or website
         KeyCode::Char('n') => {
             app.input = Input::default();
-            app.input.set_placeholder("New List Name");
             app.mode = TuiMode::Editing;
         }
         KeyCode::Char('a') => {
             if app.selected_list_index.is_some() {
                 app.input = Input::default();
-                app.input.set_placeholder("New Website URL");
                 app.mode = TuiMode::Editing;
             } else {
                 app.status_message = "Please select a list first".to_string();
