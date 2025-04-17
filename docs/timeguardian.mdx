@@ -1,0 +1,48 @@
+---
+title: "TimeGuardian: A Focused Productivity Tool"
+publishedAt: "2025-04-17"
+summary: "TimeGuardian is a TUI-based application that helps maintain focus by temporarily blocking distracting websites during work sessions."
+images:
+  - "/images/projects/timeguardian/cover.jpg"
+  - "/images/projects/timeguardian/screenshot.jpg"
+team:
+  - name: "Jannis Krija"
+    role: "Software Developer"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://github.com/cipher-shad0w"
+link: "https://github.com/cipher-shad0w/timeguardian"
+---
+
+## Overview
+
+TimeGuardian is a command-line and TUI (Text User Interface) application designed to help users maintain focus by blocking distracting websites during work sessions. The project was born out of the need to create distraction-free environments when working on important tasks. By temporarily modifying the system's hosts file, TimeGuardian effectively prevents access to specified websites, allowing for enhanced productivity and focus.
+
+## Key Features
+
+- **Website List Management**: Create and manage multiple lists of websites to block, each tailored for different work scenarios.
+- **Focus Timer Integration**: Set customizable timers for blocking sessions, with support for productivity techniques like the Pomodoro method.
+- **Intuitive TUI Interface**: Navigate through website lists and timer settings using an intuitive, vim-inspired keyboard interface.
+- **Cross-Platform Support**: Works seamlessly across Linux, macOS, and Windows operating systems.
+- **Smart Hosts File Management**: Automatically modifies and restores the system hosts file without manual intervention.
+- **Command-line Mode**: Quick access to blocking functionality without launching the full TUI.
+
+## Technologies Used
+
+- **Rust Programming Language**: Built with Rust for performance, safety, and reliability.
+- **Terminal UI Framework**: Implemented with `ratatui` for a responsive and attractive terminal interface.
+- **Event Handling**: Uses `crossterm` for terminal manipulation and event handling.
+- **Command-line Interface**: Leverages `clap` for robust command-line argument parsing.
+- **Data Serialization**: Employs `serde` and `toml` for configuration management.
+- **Error Handling**: Implements `color-eyre` for informative and user-friendly error reporting.
+
+## Challenges and Learnings
+
+One of the main challenges in developing TimeGuardian was ensuring cross-platform compatibility for hosts file manipulation. Different operating systems have varying requirements for file system permissions and DNS cache management. I implemented platform-specific code paths to handle these differences, which required extensive testing across environments.
+
+Another challenge was creating an intuitive TUI that would appeal to both power users and newcomers. I adopted vim-style keybindings to make navigation efficient for experienced terminal users while providing clear visual feedback and status messages for those less familiar with terminal applications.
+
+## Outcome
+
+TimeGuardian has evolved into a powerful productivity tool that successfully blocks digital distractions during focused work periods. The vim-inspired interface makes it easy to manage website lists and timer settings, while the underlying hosts file manipulation ensures effective website blocking without requiring external dependencies or services.
+
+The project demonstrates how terminal-based applications can provide elegant, lightweight solutions to common productivity challenges, all while maintaining a small resource footprint and avoiding the overhead of graphical interfaces.

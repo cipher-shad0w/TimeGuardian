@@ -224,40 +224,59 @@ fn block_websites_with_timer(
     let backup_path = config_dir.join(HOSTS_BACKUP);
 
     // Read current content of hosts file
-    let mut hosts_content = fs::read_to_string(&hosts_path)
+    let hosts_content = fs::read_to_string(&hosts_path)
         .wrap_err_with(|| format!("Could not read hosts file: {:?}", hosts_path))?;
 
-    // Create backup if it doesn't exist or is empty
-    if !backup_path.exists() || fs::read_to_string(&backup_path)?.trim().is_empty() {
-        fs::write(&backup_path, &hosts_content)
-            .wrap_err_with(|| format!("Could not create backup: {:?}", backup_path))?;
-    }
+    // Create backup if it doesn't exist
+    let mut backup_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&backup_path)
+        .wrap_err_with(|| format!("Could not create backup file: {:?}", backup_path))?;
 
-    // Remove previous temporary entries if present
-    if let Some(start) = hosts_content.find(TEMP_HOSTS_MARKER) {
-        if let Some(end) = hosts_content[start..].find("\n# ===== End") {
-            hosts_content = hosts_content[..start].to_string() + &hosts_content[start + end + 12..];
+    backup_file.write_all(hosts_content.as_bytes())
+        .wrap_err("Could not write to backup file")?;
+
+    // Create the new hosts content with blocked websites
+    let mut new_hosts_content = hosts_content;
+
+    // Remove any existing temporary entries
+    if let Some(start) = new_hosts_content.find(TEMP_HOSTS_MARKER) {
+        if let Some(end) = new_hosts_content[start..].find("\n# ===== End") {
+            let end_idx = start + end + "\n# ===== End Temporary Hosts =====".len();
+            new_hosts_content = new_hosts_content[..start].to_string() + &new_hosts_content[end_idx..];
         }
     }
 
     // Add new temporary entries
-    hosts_content.push_str(&format!("\n{}\n", TEMP_HOSTS_MARKER));
+    new_hosts_content.push_str(&format!("\n{}\n", TEMP_HOSTS_MARKER));
     for website in websites {
-        if !website.trim().is_empty() && !hosts_content.contains(website) {
-            hosts_content.push_str(&format!("127.0.0.1\t{}\n", website));
+        let website = website.trim();
+        if !website.is_empty() {
+            println!("Blocking website: {}", website);
+            new_hosts_content.push_str(&format!("127.0.0.1\t{}\n", website));
+            
+            // Add www. version if it doesn't have it
+            if !website.starts_with("www.") {
+                new_hosts_content.push_str(&format!("127.0.0.1\twww.{}\n", website));
+            }
         }
     }
-    hosts_content.push_str(&format!("# ===== End Temporary Hosts =====\n"));
+    new_hosts_content.push_str("# ===== End Temporary Hosts =====\n");
 
     // Write the updated hosts file
-    let mut file = OpenOptions::new()
+    let mut hosts_file = OpenOptions::new()
         .write(true)
         .truncate(true)
         .open(&hosts_path)
         .wrap_err_with(|| format!("Could not open hosts file: {:?}", hosts_path))?;
 
-    file.write_all(hosts_content.as_bytes())
+    hosts_file.write_all(new_hosts_content.as_bytes())
         .wrap_err("Could not update hosts file")?;
+
+    // Flush DNS cache
+    flush_dns_cache();
 
     // Terminal output
     let message = format!(
@@ -337,7 +356,7 @@ fn run_tui() -> Result<()> {
     let config = load_config()?;
     if let Some(website_lists) = config.website_lists {
         app.website_lists = website_lists;
-        if !app.website_lists.is_empty() {
+        if (!app.website_lists.is_empty()) {
             app.website_list_state.select(Some(0));
             app.selected_list_index = Some(0);
             
@@ -393,7 +412,7 @@ fn run_tui() -> Result<()> {
                         KeyCode::Esc => app.mode = TuiMode::Normal,
                         KeyCode::Enter => {
                             let input_value = app.input.value().to_string();
-                            if !input_value.is_empty() {
+                            if (!input_value.is_empty()) {
                                 match app.tabs.index {
                                     0 => {
                                         if app.selected_list_index.is_some() {
@@ -467,7 +486,7 @@ fn handle_website_list_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
         KeyCode::Char('l') | KeyCode::Right => {
             if app.selected_list_index.is_some() {
                 if let Some(list) = app.current_website_list() {
-                    if !list.websites.is_empty() {
+                    if (!list.websites.is_empty()) {
                         app.website_state.select(Some(0));
                         app.selected_website_index = Some(0);
                     }
@@ -652,49 +671,92 @@ fn handle_timer_tab_events(app: &mut App, key: KeyCode) -> Result<()> {
 
 /// Block websites using the TUI interface
 fn start_blocking_websites(websites: &Vec<String>, _duration_ms: u64) -> std::io::Result<()> {
+    // Check if we're running as root/admin
+    #[cfg(target_family = "unix")]
+    {
+        if !is_root() {
+            eprintln!("Warning: TimeGuardian needs root privileges to modify the hosts file.");
+            eprintln!("Please run the application with sudo or as administrator.");
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied, 
+                "Insufficient permissions to modify hosts file"
+            ));
+        }
+    }
+
     let hosts_path = get_hosts_path();
     let config_dir = get_config_dir().map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     let backup_path = config_dir.join(HOSTS_BACKUP);
 
     // Read current content of hosts file
-    let mut hosts_content = fs::read_to_string(&hosts_path)?;
+    let hosts_content = fs::read_to_string(&hosts_path)?;
 
-    // Create backup if it doesn't exist
-    if !backup_path.exists() {
-        fs::write(&backup_path, &hosts_content)?;
-    } else {
-        // If backup exists, ensure it's current
-        let mut backup_file = OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&backup_path)?;
+    // Create backup if it doesn't exist or update the existing backup
+    let mut backup_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&backup_path)?;
 
-        backup_file.write_all(hosts_content.as_bytes())?;
-    }
+    backup_file.write_all(hosts_content.as_bytes())?;
 
-    // Remove previous temporary entries if present
-    if let Some(start) = hosts_content.find(TEMP_HOSTS_MARKER) {
-        if let Some(end) = hosts_content[start..].find("\n# ===== End") {
-            hosts_content = hosts_content[..start].to_string() + &hosts_content[start + end + 12..];
+    // Create the new hosts content with blocked websites
+    let mut new_hosts_content = hosts_content.clone();
+    
+    // Remove any existing TimeGuardian entries
+    if let Some(start_idx) = new_hosts_content.find(TEMP_HOSTS_MARKER) {
+        if let Some(end_idx) = new_hosts_content[start_idx..].find("\n# ===== End") {
+            let end_idx = start_idx + end_idx + "\n# ===== End Temporary Hosts =====".len();
+            new_hosts_content = new_hosts_content[..start_idx].to_string() + &new_hosts_content[end_idx..];
         }
     }
 
-    // Add new temporary entries
-    hosts_content.push_str(&format!("\n{}\n", TEMP_HOSTS_MARKER));
+    // Add new website blocks with multiple domain variants
+    new_hosts_content.push_str(&format!("\n{}\n", TEMP_HOSTS_MARKER));
     for website in websites {
-        if !website.trim().is_empty() && !hosts_content.contains(website) {
-            hosts_content.push_str(&format!("127.0.0.1\t{}\n", website));
+        let website = website.trim().to_lowercase();
+        if !website.is_empty() {
+            println!("Blocking website: {}", website);
+            
+            // Remove any protocol prefixes if present
+            let clean_website = if website.starts_with("http://") {
+                &website[7..]
+            } else if website.starts_with("https://") {
+                &website[8..]
+            } else {
+                &website
+            };
+            
+            // Remove any trailing path components
+            let domain = clean_website.split('/').next().unwrap_or(clean_website);
+            
+            // Block the base domain
+            new_hosts_content.push_str(&format!("127.0.0.1\t{}\n", domain));
+            
+            // Block common subdomains
+            if !domain.starts_with("www.") {
+                new_hosts_content.push_str(&format!("127.0.0.1\twww.{}\n", domain));
+            }
+            
+            // Block mobile version
+            new_hosts_content.push_str(&format!("127.0.0.1\tm.{}\n", domain));
+            
+            // Block app subdomain
+            new_hosts_content.push_str(&format!("127.0.0.1\tapp.{}\n", domain));
         }
     }
-    hosts_content.push_str("# ===== End Temporary Hosts =====\n");
+    new_hosts_content.push_str("# ===== End Temporary Hosts =====\n");
 
-    // Write the updated hosts file
-    let mut file = OpenOptions::new()
+    // Write the modified hosts file
+    let mut hosts_file = OpenOptions::new()
         .write(true)
         .truncate(true)
         .open(&hosts_path)?;
-    
-    file.write_all(hosts_content.as_bytes())?;
+
+    hosts_file.write_all(new_hosts_content.as_bytes())?;
+
+    // Perform a more thorough DNS cache flush
+    flush_dns_cache();
 
     Ok(())
 }
@@ -726,6 +788,78 @@ fn stop_blocking() -> Result<()> {
     }
     
     Ok(())
+}
+
+/// Flush DNS cache based on the operating system
+fn flush_dns_cache() {
+    #[cfg(target_os = "windows")]
+    {
+        // For Windows
+        let _ = Command::new("ipconfig")
+            .args(["/flushdns"])
+            .output();
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        // For macOS
+        let _ = Command::new("dscacheutil")
+            .args(["-flushcache"])
+            .output();
+        let _ = Command::new("killall")
+            .args(["-HUP", "mDNSResponder"])
+            .output();
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        // Try multiple Linux DNS cache flush methods for better compatibility
+        
+        // For systemd-resolved
+        let _ = Command::new("systemd-resolve")
+            .args(["--flush-caches"])
+            .output();
+            
+        // For nscd
+        let _ = Command::new("service")
+            .args(["nscd", "restart"])
+            .output();
+            
+        // For dnsmasq
+        let _ = Command::new("systemctl")
+            .args(["restart", "dnsmasq"])
+            .output();
+            
+        // For NetworkManager
+        let _ = Command::new("systemctl")
+            .args(["restart", "NetworkManager"])
+            .output();
+            
+        // For browsers - kill DNS cache
+        let _ = Command::new("pkill")
+            .args(["-HUP", "chrome"])
+            .output();
+        let _ = Command::new("pkill")
+            .args(["-HUP", "firefox"])
+            .output();
+            
+        // Extra check - restart local resolver service if present
+        let _ = Command::new("resolvectl")
+            .args(["flush-caches"])
+            .output();
+    }
+    
+    // Print confirmation message
+    println!("DNS cache flush attempted");
+}
+
+/// Check if the application is running with root/admin privileges
+#[cfg(target_family = "unix")]
+fn is_root() -> bool {
+    match std::env::var("SUDO_USER") {
+        Ok(_) => true, // Running under sudo
+        Err(_) => unsafe { libc::geteuid() == 0 }, // Check effective user ID
+    }
 }
 
 /// Parse a duration string like "1h", "30m", "45s"
